@@ -1,0 +1,49 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use File::Temp qw/ tempfile tempdir /;
+use Getopt::Long;
+
+my $sleep = 5;
+my $port = '';
+my $command = 'echo you forgot to enter a command';
+
+GetOptions ("sleep=i" => \$sleep,
+            "port=i" => \$port,
+            "command=s" => \$command)
+            or die "Error in command line args\n";
+
+my $template = "reflect_XXXX";
+my $temp_dir = tempdir( $template, DIR=>'/tmp/' );
+chdir $temp_dir;
+
+open my $PY, "pwd >&2; python -m SimpleHTTPServer $port |" or die "Nope: $!";
+
+my $data = do {local $/; <DATA>};
+while (1) {
+    open my $OUT, '>', "$temp_dir/index.html" or die "Can't open file: $!";
+    my $output = `$command 2>&1`;
+    my $mod_data = $data =~ s/-output-/$output/r;
+    $mod_data =~ s/-sleep-/$sleep/;
+    print $OUT $mod_data;
+    close $OUT;
+    sleep $sleep;
+}
+close $PY;
+
+__DATA__
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Output</title>
+</head>
+<body>
+    <p>-output-</p>
+  <script>
+  setTimeout(function(){
+   window.location.reload(1);
+    }, -sleep-000);
+  </script>
+</body>
+</html>
